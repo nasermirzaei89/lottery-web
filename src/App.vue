@@ -69,9 +69,9 @@
     import Web3 from 'web3';
 
     // const address = '0xb83Fe8DE9a3E1f2385F40f24141B1cAF5A111f3f';
-    const address = '0x279B78A4A66d9883782f5553c5B2444d1189E4b9';
+    const contractAddress = '0x279B78A4A66d9883782f5553c5B2444d1189E4b9';
 
-    const abi = [
+    const contractABI = [
         {
             "constant": false,
             "inputs": [],
@@ -162,8 +162,9 @@
                     this.banner = true;
                     return
                 }
+                window.web3.currentProvider.enable();
                 this.web3 = new Web3(window.web3.currentProvider);
-                this.contract = new this.web3.eth.Contract(abi, address);
+                this.contract = new this.web3.eth.Contract(contractABI, contractAddress);
                 this.accounts = await this.web3.eth.getAccounts();
                 this.manager = await this.contract.methods.getManager().call();
                 await this.getInfo()
