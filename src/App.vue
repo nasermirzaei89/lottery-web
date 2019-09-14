@@ -1,55 +1,98 @@
 <template>
     <v-app>
         <v-content>
+            <v-overlay :value="loading">
+                <v-progress-circular indeterminate></v-progress-circular>
+            </v-overlay>
+
+            <v-dialog v-model="banner" persistent max-width="480">
+                <v-card>
+                    <v-card-title>Error</v-card-title>
+                    <v-card-text>
+                        MetaMask not installed / detected
+                    </v-card-text>
+                    <v-card-actions>
+                        <v-btn text block color="primary" href="https://metamask.io/" target="_blank">
+                            Install
+                        </v-btn>
+                    </v-card-actions>
+                </v-card>
+            </v-dialog>
+
+            <v-dialog v-model="isNotRinkby" persistent max-width="480">
+                <v-card>
+                    <v-card-title>Error</v-card-title>
+                    <v-card-text>
+                        Please switch to <b>Rinkby</b> network and reload page
+                    </v-card-text>
+                    <v-card-actions>
+                        <v-btn text block color="primary" @click="reload()">
+                            Reload
+                        </v-btn>
+                    </v-card-actions>
+                </v-card>
+            </v-dialog>
+
             <v-container class="fill-height">
                 <v-row class="justify-center align-center">
                     <v-col cols="12" sm="8" md="6" lg="4" xl="3">
 
                         <h1 class="text-center">
-                            <v-icon>mdi-dice-5</v-icon>
+                            <v-icon>mdi-dice-{{dice + 1}}</v-icon>
                             Lottery
-                            <v-icon>mdi-dice-6</v-icon>
+                            <v-icon>mdi-dice-{{dice + 1}}</v-icon>
                         </h1>
 
-                        <v-banner single-line v-model="banner">
-                            MetaMask not installed / detected
-                            <template v-slot:actions>
-                                <v-btn text color="primary" href="https://metamask.io/" target="_blank">
-                                    Install
-                                </v-btn>
-                            </template>
-                        </v-banner>
-
-                        <v-select v-if="!banner" :items="accounts" v-model="defaultAccount" label="Account"
-                                  placeholder="Select an account" :loading="loading" outlined></v-select>
-
-                        <template v-if="defaultAccount">
-                            <p><b>Manager:</b>
+                        <v-slide-x-reverse-transition>
+                            <p v-if="selectedAddress">
+                                <b>You:</b>
+                                <v-chip>{{selectedAddress}}</v-chip>
+                            </p>
+                        </v-slide-x-reverse-transition>
+                        <v-slide-x-reverse-transition>
+                            <p v-if="manager">
+                                <b>Manager:</b>
                                 <v-chip>{{manager}}</v-chip>
                             </p>
-                            <p><b>Players:</b> {{players.length}} Account(s)</p>
-                            <p><b>Balance:</b> {{balance}} Ether</p>
-                        </template>
+                        </v-slide-x-reverse-transition>
+                        <v-slide-x-reverse-transition>
+                            <p v-if="players">
+                                <b>Players:</b>
+                                <span>{{players.length}} Account(s)</span>
+                            </p>
+                        </v-slide-x-reverse-transition>
+                        <v-slide-x-reverse-transition>
+                            <p v-if="balance">
+                                <b>Prize:</b>
+                                <span>{{balance}} Ether</span>
+                            </p>
+                        </v-slide-x-reverse-transition>
 
-                        <template v-if="defaultAccount">
-                            <v-form @submit.prevent="enter" v-model="valid">
-                                <h2 class="py-4">Try your luck</h2>
-                                <v-text-field v-model="amount" label="Amount" type="number" append-icon="mdi-ethereum"
-                                              :min="0.011"
-                                              :step="0.001" :disabled="entering" outlined
-                                              :rules="[rules.required, rules.number, rules.minimumRequired]"></v-text-field>
-                                <v-btn color="primary" block large :loading="entering" type="submit" :disabled="!valid">
-                                    Enter
-                                </v-btn>
-                            </v-form>
-                        </template>
+                        <v-slide-y-reverse-transition>
+                            <template v-if="selectedAddress">
+                                <v-form @submit.prevent="enter" v-model="valid">
+                                    <h2 class="py-4">Try your luck</h2>
+                                    <v-text-field v-model="amount" label="Amount" type="number"
+                                                  append-icon="mdi-ethereum"
+                                                  :min="0.011"
+                                                  :step="0.001" :disabled="entering" outlined
+                                                  :rules="[rules.required, rules.number, rules.minimumRequired]"></v-text-field>
+                                    <v-btn color="primary" block large :loading="entering" type="submit"
+                                           :disabled="!valid">
+                                        Enter
+                                    </v-btn>
+                                </v-form>
+                            </template>
+                        </v-slide-y-reverse-transition>
 
-                        <template v-if="defaultAccount && manager && defaultAccount === manager">
-                            <v-form @submit.prevent="draw">
-                                <h2 class="py-4">Pick a winner</h2>
-                                <v-btn color="secondary" block large :loading="drawing" type="submit">Draw</v-btn>
-                            </v-form>
-                        </template>
+                        <v-slide-y-reverse-transition>>
+                            <template v-if="isManager">
+                                <v-form @submit.prevent="draw">
+                                    <h2 class="py-4">Pick a winner</h2>
+                                    <v-btn color="secondary" block large :loading="drawing" type="submit">Draw</v-btn>
+                                </v-form>
+                            </template>
+                        </v-slide-y-reverse-transition>
                     </v-col>
                 </v-row>
             </v-container>
@@ -68,8 +111,7 @@
 <script>
     import Web3 from 'web3';
 
-    // const address = '0xb83Fe8DE9a3E1f2385F40f24141B1cAF5A111f3f';
-    const contractAddress = '0x279B78A4A66d9883782f5553c5B2444d1189E4b9';
+    const contractAddress = '0x725d0964d6cBAf30da6e916a78183f423F9015E5';
 
     const contractABI = [
         {
@@ -128,21 +170,27 @@
 
     export default {
         data: () => ({
-            web3: undefined,
+            dice: 0,
+
+            loading: false,
             banner: false,
+            web3: undefined,
+            contract: undefined,
+            selectedAddress: '',
+            isNotRinkby: false,
+            manager: '',
+
             snackbar: false,
             message: '',
             color: '',
-            accounts: [],
-            loading: false,
-            defaultAccount: '',
-            contract: undefined,
-            manager: '',
-            players: [],
+
+            players: undefined,
             balance: '',
             amount: '0.011',
+
             entering: false,
             drawing: false,
+
             rules: {
                 required: value => !!value || 'Required',
                 minimumRequired: value => Number(value) > 0.01 || 'Minimum wage is 0.01 ether',
@@ -150,23 +198,34 @@
             },
             valid: true
         }),
-        watch: {
-            defaultAccount: function () {
-                this.web3.eth.defaultAccount = this.defaultAccount;
+        computed: {
+            isManager: function () {
+                return this.selectedAddress && this.manager && parseInt(this.selectedAddress) === parseInt(this.manager)
             }
         },
         mounted: async function () {
+            setInterval(this.diceUp, 200);
             this.loading = true;
             try {
-                if (!window.web3) {
+                if (typeof window.ethereum === 'undefined' && typeof window.web3 === 'undefined') {
                     this.banner = true;
                     return
                 }
-                window.web3.currentProvider.enable();
-                this.web3 = new Web3(window.web3.currentProvider);
+
+                const provider = window['ethereum'] || window.web3.currentProvider;
+                await provider.enable();
+
+                if (provider.networkVersion !== '4') {
+                    this.isNotRinkby = true;
+                    return
+                }
+
+                this.web3 = new Web3(provider);
                 this.contract = new this.web3.eth.Contract(contractABI, contractAddress);
-                this.accounts = await this.web3.eth.getAccounts();
+
+                this.selectedAddress = provider.selectedAddress;
                 this.manager = await this.contract.methods.getManager().call();
+
                 await this.getInfo()
             } catch (e) {
                 this.showMessage(e, 'error')
@@ -175,6 +234,12 @@
             }
         },
         methods: {
+            diceUp: function () {
+                this.dice = (this.dice + 1) % 6;
+            },
+            reload: function () {
+                location.reload();
+            },
             showMessage(message, color = 'info') {
                 this.message = message;
                 this.color = color;
@@ -188,7 +253,7 @@
                 this.entering = true;
                 try {
                     await this.contract.methods.enter().send({
-                        from: this.defaultAccount,
+                        from: this.selectedAddress,
                         value: this.web3.utils.toWei(this.amount, 'ether')
                     });
                     await this.getInfo();
@@ -203,7 +268,7 @@
                 this.drawing = true;
                 try {
                     await this.contract.methods.draw().send({
-                        from: this.defaultAccount
+                        from: this.selectedAddress
                     });
                     await this.getInfo();
                     this.showMessage('You picked a winner successfully', 'success')
