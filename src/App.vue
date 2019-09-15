@@ -226,7 +226,12 @@
                 this.selectedAddress = provider.selectedAddress;
                 this.manager = await this.contract.methods.getManager().call();
 
-                await this.getInfo()
+                await this.getInfo();
+
+                let vm = this;
+                provider.on('accountsChanged', function () {
+                    vm.selectedAddress = provider.selectedAddress;
+                })
             } catch (e) {
                 this.showMessage(e, 'error')
             } finally {
